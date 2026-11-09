@@ -1,0 +1,44 @@
+name: bahanbakuapp-test
+services:
+  database:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: bahanbaku_test
+      POSTGRES_USER: bahanbaku_test
+      POSTGRES_PASSWORD: isolated_test_database
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U bahanbaku_test -d bahanbaku_test]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  backend:
+    build: ./backend
+    environment:
+      PGHOST: database
+      PGDATABASE: bahanbaku_test
+      PGUSER: bahanbaku_test
+      PGPASSWORD: isolated_test_database
+      JWT_SECRET: isolated_test_secret_bahanbaku_minimum_32_characters
+      INITIAL_PASSWORD: TestOnly-BahanBaku!
+    command: [sh, -c, 'npm run demo && npm start']
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  tester:
+    image: node:24-alpine
+    volumes:
+      - ./tests:/tests:ro
+    environment:
+      API_URL: http://backend:3000/api
+      TEST_PASSWORD: TestOnly-BahanBaku!
+    command: [node, /tests/integration.mjs]
+    depends_on:
+      backend:
+        condition: service_healthy
