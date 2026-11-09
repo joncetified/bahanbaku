@@ -68,6 +68,8 @@ Perhitungan ini konservatif terhadap seluruh rencana lain yang disetujui, bukan 
 
 ## Model dan evaluasi
 
+Halaman Prediksi ML menampilkan kesiapan riwayat setiap produk sebelum pelatihan: jumlah hari tercatat, tanggal terakhir, dan tanggal yang masih perlu dilengkapi. Tombol pelatihan tersedia hanya ketika riwayat memenuhi syarat; backend tetap memvalidasi ulang saat permintaan dikirim. Tidak ada pengisian otomatis tanggal kosong dengan nol.
+
 - Ridge regression, alpha 1, fitur tren, lag 1/7/14 hari, rata-rata 7 hari sebelumnya, dan indikator hari dalam minggu.
 - Normalisasi fitur menggunakan data pelatihan saja. Minimal 70 hari lengkap, berakhir kemarin (zona Asia/Jakarta). Tanggal kosong tidak otomatis dianggap nol.
 - Holdout 14 hari terakhir, diprediksi secara rekursif tanpa membaca nilai aktual selama horizon evaluasi. MAE dan WAPE ditampilkan/disimpan bersama pembanding seasonal naive (pola minggu lalu).
@@ -87,6 +89,14 @@ docker compose -f compose.test.yaml up --build --abort-on-container-exit --exit-
 ```
 
 Compose pengujian memiliki database sementara tersendiri. Unit test memeriksa evaluasi model, tidak adanya kebocoran holdout, kualitas riwayat, dan permintaan nol. Integrasi memeriksa 5 role, prediksi, persetujuan, pembelian, penerimaan, produksi, rekonsiliasi stok, pencatatan ganda, laporan, akun, audit, logout, dan 404.
+
+## Catatan pemeliharaan 9 November 2026
+
+- Filter dan jenis grafik laporan direset saat keluar agar tidak terbawa ke sesi berikutnya.
+- Setelah impor CSV gagal, file yang sama dapat dipilih ulang. Kesalahan header tidak mengirim perubahan ke database.
+- Override terbatas untuk `glob` 9–14.0.1 dan `minimatch` 7–11.0.0 memakai versi perbaikan 14.0.2 dan 11.0.1. Versi lama yang tidak termasuk rentang tersebut tidak diganti. Angular tetap versi 20; gunakan Node.js 24 sesuai Dockerfile dan simpan package-lock.json.
+- Tes frontend: `cd frontend`, lalu `npm test` (Node.js 24). Tes backend mencakup kesiapan data, prediksi, pembelian, presisi angka, dan pemisahan kuota permintaan.
+- Untuk pengujian browser terisolasi, gunakan `docker compose -p bahanbaku-review -f compose.test.yaml -f compose.browser-test.yaml up --build -d`, periksa hasil layanan `tester`, lalu buka `http://localhost:4401`. Database uji bersifat sementara, terpisah dari database utama, dan hilang saat container dihentikan. Bersihkan dengan perintah Compose yang sama diikuti `down --rmi local`. Jangan gabungkan compose.browser-test.yaml dengan compose.yaml utama.
 
 ## Batas operasional
 

@@ -1,0 +1,9 @@
+# Use together with compose.test.yaml, never with the main database.
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - '127.0.0.1:4401:80'
+    depends_on:
+      backend:
+        condition: service_healthy

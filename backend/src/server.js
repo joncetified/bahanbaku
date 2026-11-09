@@ -9,6 +9,7 @@ import {inventory,requirements,supplyContext,assessSupply} from './planning.js';
 import {normalizeUsername} from './username.js';
 import {decimal} from './decimal.js';
 import {requestLimitKey,ipLimitKey} from './request-limit.js';
+import {historyReadiness} from './history-readiness.js';
 
 const app=Fastify({logger:true,bodyLimit:2*1024*1024});
 if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw Error('JWT_SECRET minimal 32 karakter.');
@@ -89,7 +90,13 @@ post('/demand/import',[...admins,'MANAGER'],async req=>tx(async c=>{
   await c.query("INSERT INTO demand(product_id,day,quantity,source,created_by) VALUES($1,$2,$3,'IMPORT',$4) ON CONFLICT(product_id,day) DO UPDATE SET quantity=$3,source='IMPORT',created_by=$4",[p.id,d,q,req.actor.id]);}
  await audit(c,req.actor.id,'IMPORT_DEMAND','DEMAND','batch',{rows:rows.length});return {message:rows.length+' baris berhasil diimpor.'};
 }));
-read('/forecasts',async()=>({forecasts:(await pool.query('SELECT f.*,p.name,p.code,u.name creator FROM forecasts f JOIN products p ON p.id=f.product_id JOIN users u ON u.id=f.created_by ORDER BY f.id DESC LIMIT 50')).rows}));
+read('/forecasts',async()=>{
+ const [models,summaries]=await Promise.all([
+  pool.query('SELECT f.*,p.name,p.code,u.name creator FROM forecasts f JOIN products p ON p.id=f.product_id JOIN users u ON u.id=f.created_by ORDER BY f.id DESC LIMIT 50'),
+  pool.query('SELECT p.id product_id,p.name,count(d.id)::int count,min(d.day) first,max(d.day) last FROM products p LEFT JOIN demand d ON d.product_id=p.id WHERE p.active GROUP BY p.id ORDER BY p.code')
+ ]);
+ return {forecasts:models.rows,readiness:summaries.rows.map(s=>historyReadiness(s,today()))};
+});
 post('/forecasts',managers,async req=>{
  const productId=id(req.body?.productId),horizon=num(req.body?.horizon,'Horizon',7,30,true);
  const history=(await pool.query('SELECT day,quantity FROM demand WHERE product_id=$1 ORDER BY day',[productId])).rows;

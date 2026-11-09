@@ -12,6 +12,8 @@ await api('/auth/login',null,{email:'aditya@bahanbaku.local',password},400);
 const caseLogin=await api('/auth/login',null,{username:' ADITYA ',password});assert.equal(caseLogin.user.id,sessions.SUPER_ADMIN.user.id);
 const catalog=await api('/catalog',token('MANAGER'));assert.equal(catalog.products.length,3);assert.equal(catalog.materials.length,8);
 const product=catalog.products[0],now=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const readiness=(await api('/forecasts',token('MANAGER'))).readiness;
+assert.equal(readiness.length,3);assert.ok(readiness.every(r=>r.ready&&r.count===120&&r.missingDays===0));
 const shifted=n=>new Date(Date.parse(now+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
 const f=await api('/forecasts',token('MANAGER'),{productId:product.id,horizon:7});
 const forecasts=await api('/forecasts',token('MANAGER'));const model=forecasts.forecasts.find(x=>x.id===f.id);assert.equal(model.result.future.length,7);assert.ok(model.result.evaluation.mae>=0);
@@ -67,6 +69,7 @@ const audit=await api('/audit',token('SUPER_ADMIN'));assert.ok(audit.rows.some(a
 const supplier=await api('/suppliers',token('ADMIN'),{name:'Pemasok Uji Presisi'});
 const material=await api('/materials',token('ADMIN'),{code:'REG-BAHAN',name:'Bahan Uji Presisi',unit:'kg',supplierId:supplier.id,unitCost:1.23,safetyStock:0,packSize:1,leadDays:0});
 const smallProduct=await api('/products',token('ADMIN'),{code:'REG-PRODUK',name:'Produk Uji Presisi',unit:'pcs'});
+assert.equal((await api('/forecasts',token('MANAGER'))).readiness.find(r=>r.product_id===smallProduct.id).ready,false);
 await api('/bom',token('MANAGER'),{productId:smallProduct.id,materialId:material.id,quantity:.0004,wastePct:0});
 assert.equal((await api('/catalog',token('MANAGER'))).bom.find(r=>r.product_id===smallProduct.id).quantity,.0004);
 await api('/stock',token('WAREHOUSE'),{materialId:material.id,quantity:.0004,note:'Presisi tidak didukung'},400);
